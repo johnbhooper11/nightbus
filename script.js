@@ -14,6 +14,21 @@ const radiusSlider = document.getElementById('radius');
 const radiusValueEl = document.getElementById('radius-value');
 const clearBtn = document.getElementById('clear-destination');
 
+// Custom marker icons
+const userIcon = L.divIcon({
+  className: 'user-marker',
+  html: '<div style="width: 20px; height: 20px; background: #4a90d9; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>',
+  iconSize: [20, 20],
+  iconAnchor: [10, 10]
+});
+
+const destinationIcon = L.divIcon({
+  className: 'destination-marker',
+  html: '<div style="width: 24px; height: 24px; background: #e74c3c; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>',
+  iconSize: [24, 24],
+  iconAnchor: [12, 12]
+});
+
 // Initialize alarm sound
 function initAlarm() {
   alarmSound = new Audio('assets/alarm.mp3');
@@ -82,12 +97,12 @@ function clearDestination() {
   hasAlerted = false;
 
   if (destinationMarker) {
-    destinationMarker.setMap(null);
+    map.removeLayer(destinationMarker);
     destinationMarker = null;
   }
 
   if (radiusCircle) {
-    radiusCircle.setMap(null);
+    map.removeLayer(radiusCircle);
     radiusCircle = null;
   }
 
@@ -102,47 +117,35 @@ function clearDestination() {
 }
 
 // Set destination on map
-function setDestination(latLng) {
+function setDestination(latlng) {
   destination = {
-    lat: latLng.lat(),
-    lng: latLng.lng()
+    lat: latlng.lat,
+    lng: latlng.lng
   };
   hasAlerted = false;
 
   // Remove existing destination marker and circle
   if (destinationMarker) {
-    destinationMarker.setMap(null);
+    map.removeLayer(destinationMarker);
   }
   if (radiusCircle) {
-    radiusCircle.setMap(null);
+    map.removeLayer(radiusCircle);
   }
 
   // Create destination marker
-  destinationMarker = new google.maps.Marker({
-    position: destination,
-    map: map,
-    title: 'Destination',
-    icon: {
-      path: google.maps.SymbolPath.CIRCLE,
-      scale: 12,
-      fillColor: '#e74c3c',
-      fillOpacity: 1,
-      strokeColor: '#fff',
-      strokeWeight: 2
-    }
-  });
+  destinationMarker = L.marker([destination.lat, destination.lng], {
+    icon: destinationIcon,
+    title: 'Destination'
+  }).addTo(map);
 
   // Create radius circle
-  radiusCircle = new google.maps.Circle({
-    strokeColor: '#4a90d9',
-    strokeOpacity: 0.8,
-    strokeWeight: 2,
+  radiusCircle = L.circle([destination.lat, destination.lng], {
+    color: '#4a90d9',
     fillColor: '#4a90d9',
     fillOpacity: 0.2,
-    map: map,
-    center: destination,
+    weight: 2,
     radius: alertRadius
-  });
+  }).addTo(map);
 
   saveDestination();
   updateStatus(`Destination set! Alert when within ${alertRadius}m`);
@@ -165,21 +168,12 @@ function handlePositionUpdate(pos) {
 
   // Update user marker
   if (userMarker) {
-    userMarker.setPosition(userPos);
+    userMarker.setLatLng([userPos.lat, userPos.lng]);
   } else {
-    userMarker = new google.maps.Marker({
-      position: userPos,
-      map: map,
-      title: 'You are here',
-      icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 10,
-        fillColor: '#4a90d9',
-        fillOpacity: 1,
-        strokeColor: '#fff',
-        strokeWeight: 2
-      }
-    });
+    userMarker = L.marker([userPos.lat, userPos.lng], {
+      icon: userIcon,
+      title: 'You are here'
+    }).addTo(map);
   }
 
   // Check proximity to destination
@@ -242,33 +236,17 @@ function handlePositionError(err) {
 // Initialize map
 function initMap() {
   // Default center (San Francisco)
-  const defaultCenter = { lat: 37.7749, lng: -122.4194 };
+  const defaultCenter = [37.7749, -122.4194];
 
-  map = new google.maps.Map(document.getElementById('map'), {
-    zoom: 15,
-    center: defaultCenter,
-    styles: [
-      // Dark mode map style
-      { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
-      { elementType: 'labels.text.stroke', stylers: [{ color: '#242f3e' }] },
-      { elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] },
-      {
-        featureType: 'road',
-        elementType: 'geometry',
-        stylers: [{ color: '#38414e' }]
-      },
-      {
-        featureType: 'road',
-        elementType: 'geometry.stroke',
-        stylers: [{ color: '#212a37' }]
-      },
-      {
-        featureType: 'water',
-        elementType: 'geometry',
-        stylers: [{ color: '#17263c' }]
-      }
-    ]
-  });
+  // Create map with dark tile layer
+  map = L.map('map').setView(defaultCenter, 15);
+
+  // Add dark-themed tile layer (CartoDB Dark Matter)
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 20
+  }).addTo(map);
 
   // Initialize alarm
   initAlarm();
@@ -284,30 +262,18 @@ function initMap() {
   // Get current position and center map
   navigator.geolocation.getCurrentPosition(
     pos => {
-      const userPos = {
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude
-      };
-      map.setCenter(userPos);
+      const userPos = [pos.coords.latitude, pos.coords.longitude];
+      map.setView(userPos, 15);
 
       // Create user marker
-      userMarker = new google.maps.Marker({
-        position: userPos,
-        map: map,
-        title: 'You are here',
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 10,
-          fillColor: '#4a90d9',
-          fillOpacity: 1,
-          strokeColor: '#fff',
-          strokeWeight: 2
-        }
-      });
+      userMarker = L.marker(userPos, {
+        icon: userIcon,
+        title: 'You are here'
+      }).addTo(map);
 
       // If we have a saved destination, show it
       if (hasSavedDestination && destination) {
-        setDestination(new google.maps.LatLng(destination.lat, destination.lng));
+        setDestination({ lat: destination.lat, lng: destination.lng });
       }
     },
     handlePositionError,
@@ -315,8 +281,8 @@ function initMap() {
   );
 
   // Map click to set destination
-  map.addListener('click', (e) => {
-    setDestination(e.latLng);
+  map.on('click', (e) => {
+    setDestination(e.latlng);
   });
 
   // Start watching position
@@ -346,5 +312,5 @@ function initMap() {
   clearBtn.disabled = !hasSavedDestination;
 }
 
-// Expose initMap globally for Google Maps callback
-window.initMap = initMap;
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', initMap);
