@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nightbus</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h1>🚍 Nightbus</h1>
+  <div id="map"></div>
+  <div id="controls">
+    <label for="radius">Alert radius: <span id="radius-value">200</span>m</label>
+    <input type="range" id="radius" min="50" max="1000" value="200" step="50" />
+    <button id="clear-destination">Clear Destination</button>
+  </div>
+  <div id="status">Tap on the map to set your destination</div>
+  <script src="script.js"></script>
+  <!-- Replace YOUR_API_KEY with your actual Google Maps API key -->
+  <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap">
+  </script>
+</body>
+</html>
